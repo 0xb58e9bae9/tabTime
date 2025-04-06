@@ -1,8 +1,26 @@
-<title id="t"></title>
-<script>
-    setInterval(() => {
-    let d = new Date();
-    document.getElementById("t").innerHTML =
-        d.getHours() + ":" + d.getMinutes().toString().padStart(2,"0");
-    }, 1000);
-</script>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>IEモード専用ログインページ</title>
+  <script type="text/vbscript">
+    Sub ShowAlert()
+      Dim user, pass
+      user = document.getElementById("username").value
+      pass = document.getElementById("password").value
+      MsgBox "ログインしました！ユーザー名：" & user & vbCrLf & "パスワード：" & pass
+    End Sub
+  </script>
+</head>
+<body>
+  <h2>VBScriptログインページ</h2>
+  <p>このページは Internet Explorer モードでしか正しく動作しません。</p>
+  <form>
+    <label>ユーザー名:</label><br>
+    <input type="text" id="username"><br><br>
+    <label>パスワード:</label><br>
+    <input type="password" id="password"><br><br>
+    <input type="button" value="ログイン" onclick="ShowAlert">
+  </form>
+</body>
+</html>
