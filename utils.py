@@ -1,9 +1,10 @@
-import datetime
 import getpass
 import locale
+from datetime import datetime, timedelta
 
 
-# 日本語のロケールを設定
+userId = getpass.getuser()
+
 locale.setlocale(locale.LC_ALL, 'ja_JP.UTF-8')
 
 def greet(name):
@@ -13,25 +14,14 @@ def greet(name):
     print(message)
     return message
 
+def generate_date_data():
+    today = datetime.today()
+    data = []
 
-userId = getpass.getuser()
+    for i in range(7):
+        date = today + timedelta(days=i)
+        display = date.strftime("%#m月%#d日（%a）")
+        value = date.strftime("%y/%m/%d")
+        data.append({"display": display, "value": value})
 
-
-def get_today():
-    today = datetime.date.today()
-    return today
-
-
-def set_max_date():
-    """最大日付を今日から8日後に設定する関数"""
-    today = datetime.date.today()
-    max_date = today + datetime.timedelta(days=8)
-    return max_date
-
-def create_date_list():
-    """8日分の日付リストを作成する関数"""
-    today = datetime.date.today()
-    date_list = [today + datetime.timedelta(days=i) for i in range(8)]
-    # 日付を日本語の形式に変換
-    date_list = [date.strftime("%Y/%m/%d (%a)") for date in date_list]
-    return date_list
+    return data
