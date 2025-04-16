@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from ctypes import windll
 
-from utils import greet, create_date_list, userId
+from utils import greet, generate_date_data, userId
 
 # 高解像度表示対応
 windll.shcore.SetProcessDpiAwareness(1)
@@ -10,6 +10,7 @@ windll.shcore.SetProcessDpiAwareness(1)
 
 class MainGui:
     def __init__(self):
+        self._updating = False
         self.setup_root()
         self.setup_style()
         self.create_frames()
@@ -30,7 +31,7 @@ class MainGui:
         self.style.theme_settings("vista", {
             "Main.TFrame": {"configure": {"background": "#ffffff"}},
             "Bottom.TFrame": {"configure": {"background": "#f0f0f0"}},
-            "Separator.TFrame": {"configure": {"background": "#000000"}},
+            "Separator.TFrame": {"configure": {"background": "#8d8d8d"}},
             "TCheckbutton": {"configure": {"background": "#ffffff"}},
             "TLabel": {"configure": {"background": "#ffffff", "foreground": "#000000"}},
             "Progress.TLabel": {"configure": {"background": "#f0f0f0", "foreground": "#000000"}},
@@ -66,28 +67,32 @@ class MainGui:
                                    highlightbackground="#8d8d8d",
                                    highlightcolor="#0078d4")
         self.input_pass.focus_set()
-        self.input_pass.bind("<Return>", lambda event: self.move_focus(self.start_date))
+        self.input_pass.bind("<Return>", lambda event: self.start_date.focus_set())
         self.input_pass.bind("<Shift-Return>", self.return_focus)
 
         # 日付選択欄（開始日・終了日）
+        self.date_data = generate_date_data()
+        self.display_list = [self.date_data[i]["display"] for i in range(7)]
+
         self.start_date_var = tk.StringVar()
         self.start_date = ttk.Combobox(self.main_frame,
-                                       values=create_date_list(),
+                                       value=self.display_list,
                                        textvariable=self.start_date_var,
                                        state="readonly", justify="center",
                                        width=14)
         self.start_date.current(0)
-        self.start_date.bind("<Return>", lambda event: self.move_focus(self.end_date))
+        self.start_date.bind("<<ComboboxSelected>>", self.change_end_date_min)
+        self.start_date.bind("<Return>", lambda event: self.end_date.focus_set())
         self.start_date.bind("<Shift-Return>", self.return_focus)
 
         self.end_date_var = tk.StringVar()
         self.end_date = ttk.Combobox(self.main_frame,
-                                     values=create_date_list(),
+                                     values=self.display_list,
                                      textvariable=self.end_date_var,
                                      state="readonly", justify="center",
                                      width=14)
-        self.end_date.current(0)
-        self.end_date.bind("<Return>", lambda event: self.move_focus(self.checkboxes[0]))
+        self.end_date.current(6)
+        self.end_date.bind("<Return>", lambda event: self.checkboxes[0].focus_set())
         self.end_date.bind("<Shift-Return>", self.return_focus)
 
         # 印刷対象選択チェックボックス
@@ -147,16 +152,14 @@ class MainGui:
 
         self.execute_button.pack(side="right")
 
-    def move_focus(self, next_widget, event=None):
-        """指定ウィジェットへフォーカス移動"""
-        next_widget.focus_set()
-
     def move_focus_cb(self, index):
         """チェックボックス群におけるフォーカス移動（次の項目、もしくは実行ボタンへ）"""
         if index < len(self.checkboxes) - 1:
             self.checkboxes[index + 1].focus_set()
         elif self.execute_button.instate(['!disabled']):
             self.execute_button.focus_set()
+        else:
+            self.input_pass.focus_set()
 
     def return_focus(self, event):
         """
@@ -178,9 +181,27 @@ class MainGui:
         else:
             self.execute_button.config(state="disabled")
 
+    def change_end_date_min(self, event):
+        """日付入力欄（終了日）のリストの最小値を開始日に合わせて変更する"""
+        if self._updating:
+            return
+        self._updating = True
+
+        index = self.start_date.current()
+        self.new_values = self.display_list[index:]
+        self.end_date["values"] = self.new_values
+
+        # 終了日の選択がリストの範囲外になっていれば調整
+        end_index = self.end_date.current()
+
+        if end_index >= len(self.new_values) or end_index < 0:
+            self.end_date.current(0)
+
+        self._updating = False
+
     def disable_widgets(self):
         """入力ウィジェット類を無効化（グレーアウト）する"""
-        self.style.configure("Separator.TFrame", background="#6d6d6d")
+        self.style.configure("Separator.TFrame", background="#c8c8c8")
         self.style.configure("TLabel", foreground="#6d6d6d")
         self.input_pass.config(state="disabled", highlightbackground="#c8c8c8")
         self.start_date.config(state="disabled")
@@ -209,6 +230,7 @@ class MainGui:
         print(f"開始日: {start_date_value}")
         print(f"終了日: {end_date_value}")
         print(f"選択オプション: {selected_options}")
+        print(self.new_values)
 
     def run(self):
         """アプリケーションの実行"""
