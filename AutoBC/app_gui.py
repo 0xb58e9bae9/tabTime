@@ -178,7 +178,6 @@ class MainGui:
             self.checkbox_widgets[key] = checkbox
             self.checkboxes.append(checkbox)
 
-
         # ラベル（文字列）
         self.labels = [
             (ttk.Label(self.main_frame, text=utils.greet(utils.userId)), 0, 1, 4, "w"),
