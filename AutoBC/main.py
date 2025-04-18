@@ -1,6 +1,5 @@
 from app_gui import MainGui
 
-
-# アプリケーション実行
-app = MainGui()
-app.run()
+if __name__ == "__main__":
+    app = MainGui()
+    app.run()
