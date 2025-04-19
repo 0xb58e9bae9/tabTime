@@ -1,6 +1,9 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.messagebox as messagebox
+import subprocess
+import sys
+import os
 
 import config
 import utils
@@ -25,20 +28,20 @@ class MainGui:
         # 起動時のウィンドウ描画安定化のためウィンドウを一時的に隠す
         self.root.withdraw()
 
-        self.root.title(f"{config.APP_NAME} v{config.APP_VERSION}")
+        self.root.title(config.APP_NAME)
         self.root.iconbitmap(config.ICON_PATH)
 
         self.root.resizable(False, False)
 
         self.root.bind("<Escape>", lambda event: self.cancel_action())
-        self._can_cancel = False
-
-        self._updating = False
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+        self._is_running = False  # cancel_action, on_close 用フラグ
+        self._updating_end_date = False  # change_end_date_min 用フラグ
 
     def run(self):
         """アプリケーションの実行"""
         self.root.update_idletasks()  # レイアウト確定
-        self.root.deiconify()         # ウィンドウを表示
+        self.root.deiconify()  # ウィンドウを表示
 
         self.input_pass.focus_set()
 
@@ -46,58 +49,55 @@ class MainGui:
 
     def run_process(self):
         """実行中の処理"""
-        self.status_label = ttk.Label(self.bottom_frame, text="ログイン中…",
-                                      style="Progress.TLabel", width=12)
+        self.status_label = ttk.Label(
+            self.bottom_frame, text="ログイン中…", style="Progress.TLabel", width=12
+        )
         self.status_label.pack(side="left", padx=(0, 13))
 
         self.progressbar.pack(side="right", padx=(0, 13), fill="x", expand=True)
         self.progressbar.start(config.PROGRESSBAR_SPEED)
 
-        self.execute_button.config(text="中止", state="normal", command=self.cancel_action)
+        self.execute_button.config(
+            text="中止", state="normal", command=self.cancel_action
+        )
         self.execute_button.bind("<Return>", lambda event: self.cancel_action())
 
         password = self.input_pass.get()
-        start_date_value = self.start_date.get()
-        end_date_value = self.end_date.get()
-
         end_index = self.end_date.current()
-        selected_date_list = [d["value"] for d in self.sublist[:end_index + 1]]
-
+        selected_date_list = [d["value"] for d in self.sublist[: end_index + 1]]
         selected_keys, selected_values = self.get_selected_options()
 
-        self._can_cancel = True
-
-        print(f"パスワード: {password}")
-        print(f"開始日: {start_date_value}")
-        print(f"終了日: {end_date_value}")
-        print(f"選択オプション: {selected_keys}")
-
-        print(f"選択された日付範囲（処理用）: {selected_date_list}")
-        print(f"選択された印刷対象（処理用）: {selected_values}")
+        cmd = [
+            sys.executable,
+            "process.py",
+            "userId",
+            utils.userId,
+            "--password",
+            password,
+            "--selected_date_list",
+            selected_date_list,
+            "--targets",
+            *selected_values,
+        ]
 
     def setup_style(self):
         """ウィジェットのスタイル設定"""
         self.style = ttk.Style(self.root)
-        self.style.theme_settings("vista", {
-            "Main.TFrame": {
-                "configure": {"background": "#ffffff"}
+        self.style.theme_settings(
+            "vista",
+            {
+                "Main.TFrame": {"configure": {"background": "#ffffff"}},
+                "Bottom.TFrame": {"configure": {"background": "#f0f0f0"}},
+                "Separator.TFrame": {"configure": {"background": "#8d8d8d"}},
+                "TCheckbutton": {"configure": {"background": "#ffffff"}},
+                "TLabel": {
+                    "configure": {"background": "#ffffff", "foreground": "#000000"}
+                },
+                "Progress.TLabel": {
+                    "configure": {"background": "#f0f0f0", "foreground": "#000000"}
+                },
             },
-            "Bottom.TFrame": {
-                "configure": {"background": "#f0f0f0"}
-            },
-            "Separator.TFrame": {
-                "configure": {"background": "#8d8d8d"}
-            },
-            "TCheckbutton": {
-                "configure": {"background": "#ffffff"}
-            },
-            "TLabel": {
-                "configure": {"background": "#ffffff", "foreground": "#000000"}
-            },
-            "Progress.TLabel": {
-                "configure": {"background": "#f0f0f0", "foreground": "#000000"}
-            },
-        })
+        )
 
     def create_frames(self):
         """フレームの生成"""
@@ -110,27 +110,29 @@ class MainGui:
     def create_widgets(self):
         """ウィジェットの生成"""
         # ロゴ画像用キャンバス
-        self.canvas = tk.Canvas(self.main_frame,
-                                width=60,
-                                height=60,
-                                highlightthickness=0,
-                                background="#ffffff"
-                                )
+        self.canvas = tk.Canvas(
+            self.main_frame,
+            width=60,
+            height=60,
+            highlightthickness=0,
+            background="#ffffff",
+        )
         self.logo = tk.PhotoImage(file=config.LOGO_PATH)
         self.canvas.create_image(31, 31, image=self.logo)
 
         # パスワード入力欄
         self.input_pass_var = tk.StringVar()
         self.input_pass_var.trace_add("write", self.update_button_state)
-        self.input_pass = tk.Entry(self.main_frame,
-                                   textvariable=self.input_pass_var,
-                                   insertwidth=1,
-                                   show="●",
-                                   borderwidth=0,
-                                   highlightthickness=1,
-                                   highlightbackground="#8d8d8d",
-                                   highlightcolor="#0078d4"
-                                   )
+        self.input_pass = tk.Entry(
+            self.main_frame,
+            textvariable=self.input_pass_var,
+            insertwidth=1,
+            show="●",
+            borderwidth=0,
+            highlightthickness=1,
+            highlightbackground="#8d8d8d",
+            highlightcolor="#0078d4",
+        )
         self.input_pass.bind("<Return>", lambda event: self.start_date.focus_set())
         self.input_pass.bind("<Shift-Return>", self.return_focus)
 
@@ -140,24 +142,26 @@ class MainGui:
         self.sublist = self.date_data[0:]
 
         # 日付選択欄（開始日）
-        self.start_date = ttk.Combobox(self.main_frame,
-                                       width=14,
-                                       value=self.display_list,
-                                       justify="center",
-                                       state="readonly"
-                                       )
+        self.start_date = ttk.Combobox(
+            self.main_frame,
+            width=14,
+            value=self.display_list,
+            justify="center",
+            state="readonly",
+        )
         self.start_date.current(config.START_DATE_DEFAULT)
         self.start_date.bind("<<ComboboxSelected>>", self.change_end_date_min)
         self.start_date.bind("<Return>", lambda event: self.end_date.focus_set())
         self.start_date.bind("<Shift-Return>", self.return_focus)
 
         # 日付選択欄（終了日）
-        self.end_date = ttk.Combobox(self.main_frame,
-                                     width=14,
-                                     values=self.display_list,
-                                     justify="center",
-                                     state="readonly"
-                                     )
+        self.end_date = ttk.Combobox(
+            self.main_frame,
+            width=14,
+            values=self.display_list,
+            justify="center",
+            state="readonly",
+        )
         self.end_date.current(config.END_DATE_DEFAULT)
         self.end_date.bind("<Return>", lambda event: self.checkboxes[0].focus_set())
         self.end_date.bind("<Shift-Return>", self.return_focus)
@@ -169,8 +173,12 @@ class MainGui:
 
         for i, key in enumerate(config.PRINT_TARGET_DATA):
             var = tk.BooleanVar(value=config.CHECKBOX_DEFAULT)
-            checkbox = ttk.Checkbutton(self.main_frame, text=key, variable=var,
-                                       command=self.update_button_state)
+            checkbox = ttk.Checkbutton(
+                self.main_frame,
+                text=key,
+                variable=var,
+                command=self.update_button_state,
+            )
             checkbox.bind("<Return>", lambda event, idx=i: self.move_focus_cb(idx))
             checkbox.bind("<Shift-Return>", self.return_focus)
 
@@ -186,20 +194,19 @@ class MainGui:
         ]
 
         # プログレスバー
-        self.progressbar = ttk.Progressbar(self.bottom_frame,
-                                           variable=0,
-                                           mode="indeterminate",
-                                           orient="horizontal"
-                                           )
+        self.progressbar = ttk.Progressbar(
+            self.bottom_frame, variable=0, mode="indeterminate", orient="horizontal"
+        )
 
         # 実行ボタン
-        self.execute_button = ttk.Button(self.bottom_frame,
-                                         width=13,
-                                         text="実行",
-                                         default="active",
-                                         state="disabled",
-                                         command=self.execute_action
-                                         )
+        self.execute_button = ttk.Button(
+            self.bottom_frame,
+            width=11,
+            text="実行",
+            default="active",
+            state="disabled",
+            command=self.execute_action,
+        )
         self.execute_button.bind("<Return>", lambda event: self.execute_action())
         self.execute_button.bind("<Shift-Return>", self.return_focus)
 
@@ -215,31 +222,40 @@ class MainGui:
         """ウィジェットの配置"""
         self.canvas.grid(row=0, column=0, padx=7)
 
-        self.input_pass.grid(row=1, column=1, columnspan=4, sticky="ew",
-                             padx=3, pady=(1, 18), ipady=1)
+        self.input_pass.grid(
+            row=1, column=1, columnspan=4, sticky="ew", padx=3, pady=(1, 18), ipady=1
+        )
 
-        self.start_date.grid(row=2, column=1, columnspan=4, sticky="w",
-                             padx=3, pady=(0, 14))
+        self.start_date.grid(
+            row=2, column=1, columnspan=4, sticky="w", padx=3, pady=(0, 14)
+        )
 
-        self.end_date.grid(row=2, column=1, columnspan=4, sticky="e",
-                           padx=3, pady=(0, 14))
+        self.end_date.grid(
+            row=2, column=1, columnspan=4, sticky="e", padx=3, pady=(0, 14)
+        )
 
         for i, checkbox in enumerate(self.checkboxes):
-            checkbox.grid(row=3, column=i+1, sticky="w", padx=(1, 0))
+            checkbox.grid(row=3, column=i + 1, sticky="w", padx=(1, 0))
 
         for label, row, col, colspan, sticky in self.labels:
             padx_value = (24, 0) if row == 1 else 0
             pady_value = (14, 13) if row == 0 else (0, 14)
-            label.grid(row=row, column=col, columnspan=colspan, sticky=sticky,
-                       padx=padx_value, pady=pady_value)
+            label.grid(
+                row=row,
+                column=col,
+                columnspan=colspan,
+                sticky=sticky,
+                padx=padx_value,
+                pady=pady_value,
+            )
 
         self.execute_button.pack(side="right")
 
     def change_end_date_min(self, event):
         """日付入力欄（終了日）のリストの最小値を開始日に合わせて変更する"""
-        if self._updating:
+        if self._updating_end_date:
             return
-        self._updating = True
+        self._updating_end_date = True
 
         index = self.start_date.current()
         self.sublist = self.date_data[index:]
@@ -250,7 +266,7 @@ class MainGui:
         if index > self.end_date.current():
             self.end_date.current(0)
 
-        self._updating = False
+        self._updating_end_date = False
 
     def update_button_state(self, *args):
         """パスワードの文字数とチェックボックスの選択状況で実行ボタンの有効／無効を切り替え"""
@@ -259,20 +275,21 @@ class MainGui:
         if 8 <= len(password) <= config.INPUT_LIMIT and checkbox_selected:
             self.execute_button.config(state="normal")
         elif len(password) > config.INPUT_LIMIT:
-            self.input_pass_var.set(password[:config.INPUT_LIMIT])
+            self.input_pass_var.set(password[: config.INPUT_LIMIT])
         else:
             self.execute_button.config(state="disabled")
 
     def execute_action(self):
         """実行ボタン押下時の処理"""
-        self.root.config(cursor="wait")
+        self._is_running = True
+
         self.disable_widgets()
         self.execute_button.config(state="disable")
         self.root.focus_set()
 
-        self.root.after(700, lambda: (self.root.config(cursor=""), self.run_process()))
+        self.root.after(300, lambda: (self.run_process()))
 
-    def get_selected_options(self):
+    def get_selected_options(self) -> tuple[list, list]:
         """チェックされた項目のキーと、それに対応する処理用の値を取得"""
         selected_keys = [key for key, var in self.checkbox_vars.items() if var.get()]
         selected_values = []
@@ -282,27 +299,39 @@ class MainGui:
 
     def cancel_action(self):
         """中止ボタン押下時の処理"""
-        if not self._can_cancel:
+        if not self._is_running:
             return
 
         self.progressbar.stop()
         self.execute_button.config(state="disabled")
         self.root.focus_set()
 
-        confirm = messagebox.askyesno(config.APP_NAME, "処理を中止しますか？", default="no")
+        confirm = messagebox.askyesno(
+            config.APP_NAME, "処理を中止します。よろしいですか？", default="no"
+        )
         if confirm:
-            self._can_cancel = False
+            self._is_running = False
             if hasattr(self, "status_label"):
                 self.status_label.pack_forget()
             if hasattr(self, "progressbar"):
                 self.progressbar.pack_forget()
 
             self.enable_widgets()
-            self.execute_button.config(text="実行", state="normal", command=self.execute_action)
+            self.execute_button.config(
+                text="実行", state="normal", command=self.execute_action
+            )
             self.execute_button.bind("<Return>", lambda event: self.execute_action())
         else:
             self.progressbar.start(config.PROGRESSBAR_SPEED)
             self.execute_button.config(state="normal")
+
+    def on_close(self):
+        """処理中にウィンドウの閉じるボタンが押下された場合の確認"""
+        if self._is_running:
+            if messagebox.askyesno(config.APP_NAME, "処理中です。終了しますか？"):
+                self.root.destroy()
+        else:
+            self.root.destroy()
 
     def disable_widgets(self):
         """入力ウィジェット類を無効化"""
@@ -328,7 +357,7 @@ class MainGui:
         """チェックボックスのフォーカス移動（次の項目、もしくは実行ボタンへ）"""
         if index < len(self.checkboxes) - 1:
             self.checkboxes[index + 1].focus_set()
-        elif self.execute_button.instate(['!disabled']):
+        elif self.execute_button.instate(["!disabled"]):
             self.execute_button.focus_set()
         else:
             self.input_pass.focus_set()

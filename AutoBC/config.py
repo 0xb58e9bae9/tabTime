@@ -1,4 +1,4 @@
-APP_NAME = "BC受付自動印刷"
+APP_NAME = "PrintBot - BC受付自動印刷"
 APP_VERSION = "1.0"
 
 LOGIN_URL = ""
